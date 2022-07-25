@@ -1,0 +1,105 @@
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  namespace: finetrace
+#  name: alert
+#spec:
+#  selector:
+#    matchLabels:
+#      app: alert
+#  replicas: 1
+#  template:
+#    metadata:
+#      labels:
+#        app: alert
+#    spec:
+#      containers:
+#        - name: alert
+#          image: itmsg/finetrace-alert:2.0.0
+#          imagePullPolicy: IfNotPresent
+#          envFrom:
+#            - configMapRef:
+#                name: alert-configmap
+#            - secretRef:
+#                name: finetrace-secret
+#          resources:
+#            requests:
+#              cpu: "1"
+#              memory: 1.0Gi
+#            limits:
+#              memory: 1.0Gi
+#
+#
+#---
+#
+#
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  namespace: finetrace
+#  name: alert
+#spec:
+#  ports:
+#    - name: alert-port
+#      port: 10909
+#      targetPort: 9090
+#      protocol: TCP
+#  selector:
+#    app: alert
+#  sessionAffinity: None
+#  type: ClusterIP
+#
+#
+#---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: finetrace
+  name: schedule
+spec:
+  selector:
+    matchLabels:
+      app: schedule
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: schedule
+    spec:
+      containers:
+        - name: scheduler
+          image: itmsg/finetrace-scheduler:2.0.0
+          imagePullPolicy: Always # IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: scheduler-configmap
+            - secretRef:
+                name: finetrace-secret
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1.0Gi
+            limits:
+              memory: 1.0Gi
+
+
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: finetrace
+  name: schedule
+spec:
+  ports:
+    - name: schedule-port
+      port: 1909
+      targetPort: 10101
+      protocol: TCP
+  selector:
+    app: schedule
+  sessionAffinity: None
+  type: ClusterIP

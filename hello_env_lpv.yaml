@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-hello
+  namespace: itmsg
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        environment: DEV
+        managedby: K8s
+        app: myapp
+    spec:
+      containers:
+      - name: logcontainer
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MY_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        image: busybox
+        command: [ "sh", "-c", "while [ true ]; do echo `date` pod_name : $POD_NAME, node_name: $NODE_NAME, Namespace : $MY_POD_NAMESPACE, Pod_IP: $MY_POD_IP, service_accout: $MY_POD_SERVICE_ACCOUNT 'Hello'; sleep 10; done | tee -a /ftlog/hello_${POD_NAME}.txt" ]
+        volumeMounts:
+        - name: local-persistent-storage
+          mountPath: /ftlog
+          subPathExpr: $(NODE_NAME)
+      # Primary Container
+        resources:
+          limits:
+            memory: 1028Mi
+
+      volumes:
+      - name: local-persistent-storage
+        persistentVolumeClaim:
+         claimName: local-pvc

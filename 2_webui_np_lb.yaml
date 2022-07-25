@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: webui-np-service
+  namespace: finetrace
+spec:
+  selector:
+    app: webui
+  ports:
+    - name: webui-nodeport
+      port: 9090
+      targetPort: 9090
+      nodePort: 30011 #option
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webui-lb-service
+  namespace: finetrace
+spec:
+  selector:
+    app: webui
+  ports:
+    - name: webui-lb
+      port: 9090
+      targetPort: 9090
+  type: LoadBalancer
+

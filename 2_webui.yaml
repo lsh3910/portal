@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: finetrace
+  name: webui
+spec:
+  selector:
+    matchLabels:
+      app: webui
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: webui
+    spec:
+      containers:
+        - name: webui
+          image: itmsg/finetrace-webui:2.0.0
+          imagePullPolicy: Always # IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: webui-configmap
+            - secretRef:
+                name: finetrace-secret
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1.5Gi
+            limits:
+              memory: 1.5Gi
+
+
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: finetrace
+  name: webui-service
+spec:
+  ports:
+    - name: webui-port
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+  selector:
+    app: webui
+  sessionAffinity: None
+  type: ClusterIP
+
+

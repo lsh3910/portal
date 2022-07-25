@@ -1,0 +1,160 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentdconf
+  namespace: itmsg
+data:
+  fluent.conf: |
+      <system>
+        log_level info
+        ignore_repeated_log_interval 60s
+        ignore_same_log_interval 60s
+      </system>
+
+      <source>
+        @type tail
+        @id tracelog_layer7
+        @log_level info
+        tag tracelog.layer7
+        refresh_interval 1s
+        #path /opt/SecureSpan/Gateway/node/default/var/logs/finetrace.*.log
+        #path /opt/tomcat/webapps/ROOT/WEB-INF/log/finetrace.*.log
+        path /ftlog/hello_*.txt
+        path_key path
+        pos_file /ftlog/var/tracelog.layer7.pos
+        read_from_head true
+        follow_inodes true
+        rotate_wait 5s
+        ignore_repeated_permission_error true
+        from_encoding utf-8
+        encoding utf-8
+        multiline_flush_interval 1s
+        read_lines_limit 10000
+        open_on_every_update true
+        limit_recently_modified 24h
+        <parse>
+         #@type multiline
+         #format_firstline /^\d{4}-\d{2}-\d{2}T.+?(com.l7tech.log.custom.finetrace)/
+         #format1 /^\d{4}-\d{2}-\d{2}T.+?(com.l7tech.log.custom.finetrace: -\d{1}:) (?<ftmessage>.*)/
+         @type none
+        </parse>
+      </source>
+
+      #<filter tracelog.layer7>
+      #  @type parser
+      #  key_name ftmessage
+      #  emit_invalid_record_to_error false
+      #  <parse>
+      #    @type regexp
+      #    expression (?m-ix)^(?<level>[^┌┐]*)┌┐(?<tracestep>[^┌┐]*)┌┐(?<tracestatus>[^┌┐]*)┌┐(?<traceid>[^┌┐]*)┌┐(?<spanid>[^┌┐]*)┌┐(?<parentspanid>[^┌┐]*)┌┐(?<spanstarttime>[^┌┐]*)┌┐(?<spanendtime>[^┌┐]*)┌┐(?<duration>[^┌┐]*)┌┐(?<gateway_type>[^┌┐]*)┌┐(?<gateway_company>[^┌┐]*)┌┐(?<gateway_brand>[^┌┐]*)┌┐(?<gateway_version>[^┌┐]*)┌┐(?<gateway_clustername>[^┌┐]*)┌┐(?<gateway_name>[^┌┐]*)┌┐(?<gateway_nodeid>[^┌┐]*)┌┐(?<svchost_hostname>[^┌┐]*)┌┐(?<svchost_ip>[^┌┐]*)┌┐(?<svchost_port>[^┌┐]*)┌┐(?<service_name>[^┌┐]*)┌┐(?<service_id>[^┌┐]*)┌┐(?<apiid>[^┌┐]*)┌┐(?<appkey>[^┌┐]*)┌┐(?<useridentifier>[^┌┐]*)┌┐(?<tokenid>[^┌┐]*)┌┐(?<mydata_apitype>[^┌┐]*)┌┐(?<mydata_clientid>[^┌┐]*)┌┐(?<mydata_useridentifier>[^┌┐]*)┌┐(?<mydata_srcorgcode>[^┌┐]*)┌┐(?<mydata_tgtorgcode>[^┌┐]*)┌┐(?<mydata_clienttype>[^┌┐]*)┌┐(?<mydata_apitranid>[^┌┐]*)┌┐(?<mydata_apicode>[^┌┐]*)┌┐(?<mydata_biztype>[^┌┐]*)┌┐(?<req_realip>[^┌┐]*)┌┐(?<req_remoteip>[^┌┐]*)┌┐(?<req_http_meth>[^┌┐]*)┌┐(?<service_url>[^┌┐]*)┌┐(?<service_routingurl>[^┌┐]*)┌┐(?<req_http_head_auth>[^┌┐]*)┌┐(?<req_http_size>[^┌┐]*)┌┐(?<req_http_head_all>[^┌┐]*)┌┐(?<req_http_urlquery>[^┌┐]*)┌┐(?<res_http_status>[^┌┐]*)┌┐(?<res_http_size>[^┌┐]*)┌┐(?<res_http_head_all>[^┌┐]*)┌┐(?<res_errorcode>[^┌┐]*)┌┐(?<res_errormsg>[^┌┐]*)┌┐(?<res_datacnt>[^┌┐]*)┌┐(?<req_mainpart>[^┌┐]*)┌┐(?<res_mainpart>[^┌┐]*)┌┐(?<biz_name>.*)
+      #  </parse>
+      #</filter>
+
+      <match tracelog.layer7>
+        @type kafka2
+        # list of seed brokers
+        # brokers <broker1_host>:<broker1_port>,<broker2_host>:<broker2_port>,<broker3_host>:<broker3_port>
+        brokers 192.168.2.131:9092,192.168.2.132:9092,192.168.2.133:9092
+        use_event_time false
+        # topic settings
+        topic_key tracelogca
+        default_topic tracelogca
+        # buffer settings
+        <buffer>
+          @type file
+          path /ftlog/var/tracelog.layer7
+          flush_mode interval
+          flush_interval 1s
+          flush_thread_count 4
+          queued_chunks_limit_size 4
+          chunk_limit_size 4M
+          total_limit_size 10G
+          compress gzip
+          retry_forever true
+          retry_type periodic
+          retry_wait 300s
+          #retry_wait 180s
+          retry_randomize false
+        </buffer>
+        # data type settings
+        <format>
+          @type json
+        </format>
+        # producer settings
+        idempotent true
+        required_acks -1
+        compression_codec gzip
+      </match>
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-ds
+  namespace: itmsg
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      app: fluentd
+  template:
+    metadata:
+      labels:
+        environment: DEV
+        managedby: K8s
+        app: fluentd
+    spec:
+      # This is for FluentD Logging Container
+      containers:
+      - name: fluentd
+        env:
+        - name: FLUENT_UID
+          value: root
+        - name: FLUENT_CONF
+          value: fluent.conf
+        - name: TD_AGENT_LOG_FILE
+          value: --log /fluentd/log/td-agent.log
+        - name: PIDFile
+          value: --daemon /fluentd/var/td-agent.pid
+        - name: LOG_ROTATE_AGE
+          value: --log-rotate-age 10
+        - name: LOG_ROTATE_SIZE
+          value: --log-rotate-size 10240000
+        - name: FLUENTD_ARGS
+          value: -c /fluentd/etc/fluent.conf
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+
+        #image: saravak/fluentd:elastic
+        #imagePullPolicy: Never
+        image: tscho77/fluentd-debian:3.2
+        volumeMounts:
+        - name: ftlog
+          mountPath: /ftlog
+          subPathExpr: $(NODE_NAME)
+        - name:  fdconf
+          mountPath:  /fluentd/etc/
+
+      # Primary Container
+        resources:
+          limits:
+            memory: 1028Mi
+
+      volumes:
+      - name: ftlog
+        persistentVolumeClaim:
+         claimName: local-pvc
+
+      - name: fdconf
+        configMap:
+          name: fluentdconf
